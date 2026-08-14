@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-func receiveMsg(conn net.Conn) {
+func receiveMsg(conn net.Conn, done chan bool) {
 	buf := make([]byte, 1024)
 
 	for {
@@ -14,14 +14,60 @@ func receiveMsg(conn net.Conn) {
 
 		if err == io.EOF {
 			fmt.Println("服务器关闭")
+
+			done <- true
+			return
 		}
+
 		if err != nil {
 			fmt.Println("接收消息错误:", err)
+
+			done <- true
+
 			return
 		}
 		fmt.Println("\n收到消息:", string(buf[:n]))
 	}
 }
+
+
+func sendMsg(conn net.Conn, done chan bool){
+
+	for {
+
+		var msg string
+
+		fmt.Print("请输入你的消息:")
+
+
+		_,err := fmt.Scan(&msg)
+
+
+		if err != nil {
+			fmt.Println("输入异常")
+
+			done <- true
+
+			return
+
+		}
+
+
+		_,err=conn.Write(
+			[]byte(msg),
+		)
+
+
+		if err != nil {
+
+			done <- true
+
+			return
+		}
+
+	}
+}
+
 
 func main() {
 	conn, err := net.Dial(
@@ -35,7 +81,6 @@ func main() {
 	}
 	defer conn.Close()
 	fmt.Println("连接服务器成功")
-
 
 	// 第一步：输入用户名
 	var name string
@@ -51,27 +96,18 @@ func main() {
 
 	fmt.Println("欢迎来到聊天室:", name)
 
-
 	// 开启接收信息
+	done := make(chan bool)
 
-	go receiveMsg(conn)
-
+	go receiveMsg(conn, done)
 
 	// 发送聊天信息
 
-	for {
-		var msg string
-		fmt.Print("请输入你的消息: ")
-		_, err := fmt.Scan(&msg)
-		if err != nil {
-			fmt.Println("输入异常")
-			break
-		}
-		_, err = conn.Write([]byte(msg))
+	go sendMsg(conn, done)
 
-		if err != nil {
-			fmt.Println("发送失败", err)
-			return
-		}
-	}
+	// 等待退出
+
+	<- done
+
+	fmt.Println("客户端退出")
 }

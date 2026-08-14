@@ -16,13 +16,11 @@ type Client struct {
 var clients = make(map[string]*Client)
 var mutex sync.Mutex
 
-
 // 处理客户端
 
 func handle(client *Client) {
 	defer client.Conn.Close()
 	fmt.Println("新客户端连接成功")
-
 
 	for {
 		buf := make([]byte, 1024)
@@ -33,22 +31,22 @@ func handle(client *Client) {
 			// 删除用户
 			mutex.Lock()
 
-			delete(clients,client.Name)
-			fmt.Println("当前在线人数：",len(clients))
+			delete(clients, client.Name)
+			fmt.Println("当前在线人数：", len(clients))
 
 			mutex.Unlock()
 			return
-		} 
+		}
 
-		 if err != nil {
+		if err != nil {
 			fmt.Println("Read发生错误:", err)
 			return
 		}
-		
 
 		// 原始信息
 		msg := string(buf[:n])
 
+		// =====获取列表的操作
 		if msg == "/list" {
 
 			users := getOnlineUsers()
@@ -58,10 +56,28 @@ func handle(client *Client) {
 			continue
 		}
 
+		//====== 退出操作
+		if msg == "/quit" {
+			fmt.Println(client.Name, "退出聊天室")
+
+			// 删除用户
+			mutex.Lock()
+
+			delete(clients, client.Name)
+
+			fmt.Println("【系统】：当前在线人数：", len(clients))
+
+			mutex.Unlock()
+
+			// 通知其他用户
+
+			broadcastSystem(fmt.Sprintf("【系统】: %s退出聊天室", client.Name))
+			return
+		}
+
 		// 组装信息
 
 		message := fmt.Sprintf("%s:%s", client.Name, msg)
-
 
 		fmt.Println(message)
 
@@ -70,7 +86,6 @@ func handle(client *Client) {
 		broadcast(message, client.Name)
 	}
 }
-
 
 // 把消息发送给所有在线用户
 func broadcast(msg string, sender string) {
@@ -89,6 +104,24 @@ func broadcast(msg string, sender string) {
 	mutex.Unlock()
 }
 
+// 把系统消息（退出）发送到在线的用户
+func broadcastSystem(msg string) {
+	mutex.Lock()
+
+	defer mutex.Unlock()
+
+	for _, client := range clients {
+		_, err := client.Conn.Write([]byte(msg))
+
+		if err != nil {
+
+			fmt.Println(
+				"发送失败:",
+				err,
+			)
+		}
+	}
+}
 
 // 返回在线用户字符串
 
@@ -102,7 +135,7 @@ func getOnlineUsers() string {
 
 	for name := range clients {
 		result += name + "\n"
-	} 
+	}
 
 	return result
 }
@@ -116,8 +149,7 @@ func main() {
 	defer listener.Close()
 
 	for {
-		conn,err := listener.Accept()
-
+		conn, err := listener.Accept()
 
 		if err != nil {
 
@@ -125,15 +157,11 @@ func main() {
 
 		}
 
-
-
 		// 第一次读取用户名
 
-		buf := make([]byte,1024)
+		buf := make([]byte, 1024)
 
-
-		n,err := conn.Read(buf)
-
+		n, err := conn.Read(buf)
 
 		if err != nil {
 
@@ -149,42 +177,34 @@ func main() {
 
 		client := &Client{
 
-			Name:name,
+			Name: name,
 
-			Conn:conn,
-
+			Conn: conn,
 		}
 
 		// 保存用户
 
 		mutex.Lock()
 
-
 		clients[name] = client
-
-
 
 		fmt.Println(
 			name,
 			"加入聊天室",
 		)
 
-
 		fmt.Println(
-			"当前在线人数:",
+			"【系统】：当前在线人数:",
 			len(clients),
 		)
 
-
 		mutex.Unlock()
-
-
 
 		// 通知其他用户
 
 		broadcast(
 			fmt.Sprintf(
-				"%s加入聊天室",
+				"【系统】：%s加入聊天室",
 				name,
 			),
 			name,
