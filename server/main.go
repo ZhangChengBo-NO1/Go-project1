@@ -45,9 +45,23 @@ func handle(client *Client) {
 			return
 		}
 		
+
+		// 原始信息
+		msg := string(buf[:n])
+
+		if msg == "/list" {
+
+			users := getOnlineUsers()
+
+			client.Conn.Write([]byte(users))
+
+			continue
+		}
+
 		// 组装信息
 
-		message := fmt.Sprintf("%s:%s", client.Name, string(buf[:n]))
+		message := fmt.Sprintf("%s:%s", client.Name, msg)
+
 
 		fmt.Println(message)
 
@@ -75,6 +89,23 @@ func broadcast(msg string, sender string) {
 	mutex.Unlock()
 }
 
+
+// 返回在线用户字符串
+
+func getOnlineUsers() string {
+	var result string
+
+	result += "当前在线用户:\n"
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	for name := range clients {
+		result += name + "\n"
+	} 
+
+	return result
+}
 
 func main() {
 	listener, err := net.Listen("tcp", "127.0.0.1:9000")
