@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"strings"
 )
 
 func receiveMsg(conn net.Conn, done chan bool) {
@@ -26,45 +29,29 @@ func receiveMsg(conn net.Conn, done chan bool) {
 
 			return
 		}
-		fmt.Println("\n收到消息:", string(buf[:n]))
+		fmt.Println( string(buf[:n]))
 	}
 }
 
 
-func sendMsg(conn net.Conn, done chan bool){
+func sendMsg(conn net.Conn, reader *bufio.Reader,done chan bool){
 
 	for {
-
-		var msg string
-
 		fmt.Print("请输入你的消息:")
+		msg, _ := reader.ReadString('\n')
+		msg = strings.TrimSpace(msg) // 去掉首尾空格和换行
 
-
-		_,err := fmt.Scan(&msg)
-
-
-		if err != nil {
-			fmt.Println("输入异常")
-
-			done <- true
-
-			return
-
+		if msg == "" {
+			continue
 		}
 
-
-		_,err=conn.Write(
-			[]byte(msg),
-		)
-
-
+		// 必须加上 \n，否则服务端无法区分消息边界
+		_, err := conn.Write([]byte(msg + "\n"))
 		if err != nil {
-
+			fmt.Println("发送消息失败:", err)
 			done <- true
-
 			return
 		}
-
 	}
 }
 
@@ -83,12 +70,13 @@ func main() {
 	fmt.Println("连接服务器成功")
 
 	// 第一步：输入用户名
-	var name string
+	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("请输入用户名：")
-	fmt.Scan(&name)
+	name, _ := reader.ReadString('\n')
+	name = strings.TrimSpace(name)
 
 	// 发送用户名
-	_, err = conn.Write([]byte(name))
+	_, err = conn.Write([]byte(name + "\n"))
 	if err != nil {
 		fmt.Println("发送用户名失败:", err)
 		return
@@ -103,7 +91,7 @@ func main() {
 
 	// 发送聊天信息
 
-	go sendMsg(conn, done)
+	go sendMsg(conn,reader, done)
 
 	// 等待退出
 

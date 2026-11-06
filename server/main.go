@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 )
 
@@ -44,7 +45,12 @@ func handle(client *Client) {
 		}
 
 		// 原始信息
-		msg := string(buf[:n])
+		msg := strings.TrimSpace(string(buf[:n]))
+
+		// 防止用户回车导致死循环
+		if msg == "" {
+			continue
+		}
 
 		// =====获取列表的操作
 		if msg == "/list" {
@@ -171,7 +177,7 @@ func main() {
 
 		}
 
-		name := string(buf[:n])
+		name := strings.TrimSpace(string(buf[:n]))
 
 		// 创建用户
 
